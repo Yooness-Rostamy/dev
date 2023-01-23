@@ -2,88 +2,221 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+//*******************
+//fgets and scanf problem on not flushing input properly, read from this sources about solution and problem:
+//https://stackoverflow.com/questions/34219549/how-to-properly-flush-stdin-in-fgets-loop
+//https://www.daniweb.com/programming/software-development/code/217396/how-to-properly-flush-the-input-stream-stdin
+#define FLUSH_STDIN(x) {if(x[strlen(x)-1]!='\n'){do fgets(Junk,16,stdin);while(Junk[strlen(Junk)-1]!='\n');}else x[strlen(x)-1]='\0';}
+
+char Junk[16]; // buffer for discarding excessive user input,
+               // used by "FLUSH_STDIN" macro
+//*******************
+
+
 #define MAXINPUT 20
+
 // Entities:
-// Admin
+// Auth
 // Students
+// Instructors
 // Courses
-// Teachers
-// users
+enum entities {AUTH, STUDENTS, INSTRUCTORS, COURSES};
 
-enum entities {AUTH, STUDENTS, TEACHERS, COURSES};
 const char *files[4];
-enum roles {admin, student, teacher};
 
-struct _course {
-    char courseId[MAXINPUT];
-    char courseTitle[MAXINPUT];
-    int units;
-};
-
-struct _student {
-    char userName[MAXINPUT];
-    char firstName[MAXINPUT];
-    char lastName[MAXINPUT];
-    struct _course courses[20];
-};
-
-struct _teacher {
-    char userName[MAXINPUT];
-    char firstName[MAXINPUT];
-    char lastName[MAXINPUT];
-    char title[MAXINPUT];
-    struct _course courses[20];
-};
-
-// store user credentials in auth.txt
-struct _user {
-    char userName[MAXINPUT];
-    char passWord[MAXINPUT];
-    enum roles role;
-};
-
-int healthCheck(void);
-int enterChoice(void);
-int login(void);
-int checkFileExists(char *filename);
-int isStringEmpty(const char *s);
-int searchForEntitie(enum entities entityFile, void *entity);
-void authenticate(){
-
-}
-
-int main()
+void initGlobalVariables(void)
 {
     files[AUTH] = "auth.txt";
     files[STUDENTS] = "students.txt";
-    files[TEACHERS] = "teachers.txt";
+    files[INSTRUCTORS] = "instructors.txt";
     files[COURSES] = "courses.txt";
+}
 
-    if(healthCheck() == 1)
+// store user credentials in auth.txt
+struct _user {
+    int  userId;
+    char passWord[MAXINPUT];
+};
+
+struct _student {
+    int  studentId;
+    char firstName[MAXINPUT];
+    char lastName[MAXINPUT];
+};
+
+struct _instructor {
+    int  instructorId;
+    char firstName[MAXINPUT];
+    char lastName[MAXINPUT];
+    char title[MAXINPUT];
+};
+
+struct _course {
+    int  courseId;
+    char Name[MAXINPUT];
+    int  Unit;
+};
+
+
+int checkFileExists(char *filename);
+int isStringEmpty(const char *s);
+int startupCheck(void);
+int loadAllEntityElementsFromFile(void *buffer, size_t elementSize, int entityType);
+char *safe_fgets(char *buffer, int size);
+int strToUnsignedInt(const char *strUserId);
+int authenticate(struct _user allusers[], int totalUsers);
+int getMenuChoice(int digits, int maxnum);
+int getString(const char *prompt, char *buffer, int bufferSize, int repeatOnError, int clsOnRepeat);
+int getInteger(const char *prompt, int *input, int inputDigits, int inputMinValue, int inputMaxValue, int repeatOnError, int clsOnRepeat);
+
+int main()
+{
+    initGlobalVariables();
+
+    if(startupCheck() == 1)
         return 1;
 
-    struct _user testuser = {.userName = "admin", .role = admin};
+    // userId 0 for admin
+    // userId 1 - 100 for students
+    // userId 101 - 200 for instructors
+    // using = {} for zero initializing arrays
+    struct _user allusers[200] = {};
 
-    searchForEntitie(AUTH, &testuser);
-    return 0;
-    FILE *authFile;
-    if((authFile = fopen("auth.txt", "rb"))==NULL)
-    {
-        puts("Couldnt open auth.txt file! exiting.\n");
-        return 0;
-    }
-    struct _user user;
-    fread(&user, sizeof(struct _user), 1, authFile);
-    printf("username: %s, password: %s, role: %d\n", user.userName, user.passWord, user.role);
-    fclose(authFile);
-    //login();
-    //enterChoice();
-    //printf("Hello world!\n");
+    struct _student allstudents[100] = {};
+    struct _instructor allinstructors[100] = {};
+    struct _course allcourses[100] = {};
+
+
+    int totalUsers       = loadAllEntityElementsFromFile(allusers, sizeof(struct _user), AUTH);
+    int totalStudents    = loadAllEntityElementsFromFile(allstudents, sizeof(struct _student), STUDENTS);
+    int totalInstructors = loadAllEntityElementsFromFile(allinstructors, sizeof(struct _instructor), INSTRUCTORS);
+    int totalCourses     = loadAllEntityElementsFromFile(allcourses, sizeof(struct _course), COURSES);
+
+    int userId = authenticate(allusers, totalUsers);
+
+    system("cls");
+    printf("Welcome!\n");
+
+    int menuChoice = -1 ;
+    do{
+        printf("Enter your choice:\n"
+               "1 - Student management\n"
+               "2 - Instructor management\n"
+               "3 - Course management\n"
+               "4 - change password\n"
+               "0 - Exit!\n"
+               );
+        menuChoice = getMenuChoice(1, 4);
+        //char tempBuf[10] = {};
+        switch(menuChoice)
+        {
+        case 0:
+            return 0;
+        case 1:
+            {
+                while(1){
+                    system("cls");
+                    printf("Enter your choice:\n"
+                           "1 - List students\n"
+                           "2 - Add student\n"
+                           "0 - Back!\n"
+                           );
+                    int menuChoice = getMenuChoice(1, 2);
+                    if(menuChoice == 0)
+                    {
+                        system("cls");
+                        break;
+                    }
+                    if(menuChoice == 1)
+                    {
+                        printf("                     Students List\n"
+                               "-------------------------------------------------------\n"
+                                   );
+                        for(int i = 0 ; i < totalStudents ; i++)
+                        {
+                            printf("#%-3d - %-20s%-20s  , Id:%-3d\n", i, allstudents[i].firstName, allstudents[i].lastName, allstudents[i].studentId);
+                        }
+                        system("pause");
+                    }
+                    if(menuChoice == 2)
+                    {
+                        int studentId = -1;
+                        char firstName[MAXINPUT] = {}, lastName[MAXINPUT] = {};
+
+                        system("cls");
+                        int result = getInteger("Enter student Id , must be unique and between 1-101:", &studentId, 3, 1, 101, 1, 1);
+                        getString("Enter your first name:", firstName, sizeof(firstName)/sizeof(firstName[0]), 1, 1);
+                        getString("Repeat your last name:", lastName, sizeof(lastName)/sizeof(lastName[0]), 1, 1);
+                        allstudents[totalStudents].studentId = studentId;
+                        strcpy(allstudents[totalStudents].firstName, firstName);
+                        strcpy(allstudents[totalStudents].lastName , lastName);
+                        totalStudents++;
+                        FILE *writePtr;
+                        if((writePtr = fopen(files[STUDENTS], "wb"))==NULL){
+                            printf("Error, cannot access %s file! exiting...\n", files[STUDENTS]);
+                            return 1;
+                        }
+
+                        for(int i = 0 ; i < totalStudents ; i++)
+                        {
+                            fwrite(&allstudents[i], sizeof(struct _student), 1, writePtr);
+                        }
+                        fclose(writePtr);
+                    }
+                }
+            }
+            break;
+        case 4:
+            {
+                //menuChoice = -1;
+                char newPassword[MAXINPUT] = {}, repeatedNewPassword[MAXINPUT] = {};
+
+                system("cls");
+                getString("Enter new password:", newPassword, sizeof(newPassword)/sizeof(newPassword[0]), 1, 1);
+                getString("Repeat new password:", repeatedNewPassword, sizeof(repeatedNewPassword)/sizeof(repeatedNewPassword[0]), 1, 1);
+                if(strcmp(newPassword, repeatedNewPassword) != 0)
+                {
+                    system("cls");
+                    puts("Passwords not match!");
+                    continue;
+                }
+                for(int i = 0 ; i < totalUsers ; i++)
+                {
+                    if(allusers[i].userId == userId)
+                    {
+                        strcpy(allusers[i].passWord , newPassword);
+                        break;
+                    }
+                }
+                FILE *writePtr;
+                if((writePtr = fopen(files[AUTH], "wb"))==NULL){
+                    printf("Error, cannot access %s file! exiting...\n", files[AUTH]);
+                    return 1;
+                }
+
+                for(int i = 0 ; i < totalUsers ; i++)
+                {
+                    fwrite(&allusers[i], sizeof(struct _user), 1, writePtr);
+                }
+                fclose(writePtr);
+                system("cls");
+                puts("Password changed successfully!");
+            }
+            break;
+        default:
+            system("cls");
+            break;
+        }
+
+    }while(1);
+
+    system("pause");
     return 0;
 }
 
 // check if auth.txt file exists, if not create the file with default credentials
-int healthCheck(void){
+int startupCheck(void){
 
     for(int i = AUTH; i <= COURSES; i++)
     {
@@ -94,13 +227,16 @@ int healthCheck(void){
             if((filePtr = fopen(files[i], "wb"))!=NULL){
                     if(i == AUTH)
                     {
-                        struct _user adminUser;
-                        strcpy(adminUser.userName, "admin");
-                        strcpy(adminUser.passWord, "1234");
-                        adminUser.role = admin;
-                        fwrite(&adminUser, sizeof(struct _user), 1, filePtr);
+                        struct _user admin;
+                        // 0 is reserved for admin user
+                        admin.userId = 0;
+                        strcpy(admin.passWord, "1234");
+                        fwrite(&admin, sizeof(struct _user), 1, filePtr);
+                        admin.userId = 20;
+                        strcpy(admin.passWord, "144434");
+                        fwrite(&admin, sizeof(struct _user), 1, filePtr);
                         fclose(filePtr);
-                        printf("Creating %s file, default credentians are:\n\tusername: admin\n\tpassword: 1234\n", files[i]);
+                        printf("Creating %s file, default credentians are:\n\tusername: 0\n\tpassword: 1234\n", files[i]);
                     }
                     else
                         printf("Creating %s file.\n", files[i]);
@@ -137,102 +273,229 @@ int isStringEmpty(const char *s)
     return 1;
 }
 
-int searchForEntitie(enum entities entityFile, void *entity)
+char *safe_fgets(char *buffer, int size)
 {
+    fgets(buffer, size, stdin);
+    FLUSH_STDIN(buffer);
+}
+
+int strToUnsignedInt(const char *strUserId)
+{
+    int len = strlen(strUserId);
+    for(int i = 0; i < len ; i++)
+        if(isdigit(strUserId[i]) == 0)
+            return -1;
+
+    int userId = atoi(strUserId);
+
+    char temp[len];
+    if(len != strlen(itoa(userId,temp,10)))
+        return -1;
+    return userId;
+}
+
+int loadAllEntityElementsFromFile(void *buffer, size_t elementSize, int entityType)
+{
+    // load all entity files into corresponding struct arrays
     FILE *readPtr;
-    if ((readPtr = fopen(files[entityFile], "rb")) == NULL)
+    if ((readPtr = fopen(files[entityType], "rb")) == NULL)
     {
             puts("File could not be opened.");
             return -2; //program does not execute successfully
     }
 
-    char *username;
-    struct _user *user = (struct _user *) entity;
-    struct _course *course = (struct _course *) entity;
-    struct _student *student = (struct _student *) entity;
-    struct _teacher *teacher = (struct _teacher *) entity;
-
-    switch(entityFile)
-    {
-    case AUTH:
-        username = user->userName;
-        break;
-    case COURSES:
-        username = course->courseId;
-        break;
-    case STUDENTS:
-        username = student->userName;
-        break;
-    case TEACHERS:
-        username = teacher->userName;
-        break;
-    default:
-        return -3;
-    }
-
-
-    if(isStringEmpty(username) == 1)
-    {
-        puts("Please input non empty string!\n");
-        return -1;
-    }
-
-
+    int counter = 0;
     while (!feof(readPtr)) {
-        long int pos = ftell(readPtr);
-        switch(entityFile)
+
+        char readBuf[elementSize];
+        // Zero init readBuf
+        for(int i = 0; i < elementSize; i++)
+            readBuf[i] = 0;
+
+        int elementsRead = fread(&readBuf, elementSize, 1, readPtr);
+        if(elementsRead > 0)
+        {
+            switch(entityType)
             {
             case AUTH:
                 {
-                    struct _user temp;
-                    fread(&temp, sizeof(struct _user), 1, readPtr);
-                    if(strcmp(user->userName, temp.userName) == 0)
-                    {
-                        strcpy(user->passWord, temp.passWord);
-                        user->role = temp.role;
-                        return pos;
-                    }
+                    struct _user *tempUser = (struct _user *)readBuf;
+                    struct _user *userBuffer = (struct _user *) buffer;
+                    userBuffer[counter].userId = tempUser->userId;
+                    strcpy(userBuffer[counter].passWord, tempUser->passWord);
                 }
                 break;
             case STUDENTS:
                 {
-                    struct _student temp;
-                    fread(&temp, sizeof(struct _student), 1, readPtr);
-                    if(strcmp(student->userName, temp.userName) == 0)
-                    {
-                        strcpy(student->firstName, temp.firstName);
-                        strcpy(student->lastName, temp.lastName);
-                        return pos;
-                    }
+                    struct _student *tempStudent = (struct _student *)readBuf;
+                    struct _student *studentBuffer = (struct _student *) buffer;
+                    studentBuffer[counter].studentId = tempStudent->studentId;
+                    strcpy(studentBuffer[counter].firstName, tempStudent->firstName);
+                    strcpy(studentBuffer[counter].lastName, tempStudent->lastName);
                 }
                 break;
-            case TEACHERS:
+            case INSTRUCTORS:
                 {
-                    struct _teacher temp;
-                    fread(&temp, sizeof(struct _teacher), 1, readPtr);
-                    if(strcmp(teacher->userName, temp.userName) == 0)
-                    {
-                        strcpy(teacher->firstName, temp.firstName);
-                        strcpy(teacher->lastName, temp.lastName);
-                        strcpy(teacher->title, temp.title);
-                        return pos;
-                    }
+                    struct _instructor *tempInstructor = (struct _instructor *)readBuf;
+                    struct _instructor *instructorBuffer = (struct _instructor *) buffer;
+                    instructorBuffer[counter].instructorId = tempInstructor->instructorId;
+                    strcpy(instructorBuffer[counter].firstName, tempInstructor->firstName);
+                    strcpy(instructorBuffer[counter].lastName, tempInstructor->lastName);
+                    strcpy(instructorBuffer[counter].title, tempInstructor->title);
                 }
                 break;
             case COURSES:
                 {
-                    struct _course temp;
-                    fread(&temp, sizeof(struct _course), 1, readPtr);
-                    if(strcmp(course->courseId, temp.courseId) == 0)
-                    {
-                        course->units = temp.units;
-                        strcpy(course->courseTitle, temp.courseTitle);
-                        return pos;
-                    }
+                    struct _course *tempCourse = (struct _course *)readBuf;
+                    struct _course *courseBuffer = (struct _course *) buffer;
+                    courseBuffer[counter].courseId = tempCourse->courseId;
+                    courseBuffer[counter].Unit = tempCourse->Unit;
+                    strcpy(courseBuffer[counter].Name, tempCourse->Name);
                 }
                 break;
             }
+            counter++;
+        }
+    }
+    fclose(readPtr);
+    return counter;
+}
+
+int authenticate(struct _user allusers[], int totalUsers){
+    while(1){
+        char username[MAXINPUT+1] = {0};
+        char password[MAXINPUT+1] = {0};
+
+        printf("Please enter your credentials(max %d chars):\n\tUsername:", MAXINPUT-1);
+        safe_fgets(username, MAXINPUT+1);
+        printf("\tPassword:");
+        safe_fgets(password, MAXINPUT+1);
+
+        int usernameLen = strlen(username);
+        int passwordLen = strlen(password);
+        if(usernameLen == MAXINPUT || passwordLen == MAXINPUT)
+        {
+            system("cls");
+            printf("You exceeded max %d chars!\n", MAXINPUT - 1);
+            continue;
+        }
+
+        if(usernameLen > 3)
+        {
+            system("cls");
+            printf("Id must be between 1-200!\n");
+            continue;
+        }
+
+        int userId = strToUnsignedInt(username);
+        if(userId == -1 || userId > 200)
+        {
+            system("cls");
+            printf("Id must be between 1-200!\n");
+            continue;
+        }
+
+        for(int i = 0 ; i < totalUsers ; i++)
+        {
+            if(allusers[i].userId == userId && strcmp(allusers[i].passWord, password) == 0)
+            {
+                //printf("Welcome!\n");
+                return userId;
+            }
+        }
+        system("cls");
+        printf("Your id or password is incorrect, try again!\n");
+    }
+}
+
+int getMenuChoice(int digits, int maxnum){
+    int menuChoice;
+
+    char strMenuChoice[digits+2];
+    safe_fgets(strMenuChoice, digits+2);
+
+    int strMenuChoiceLen = strlen(strMenuChoice);
+    if(strMenuChoiceLen == digits+1 )
+    {
+        system("cls");
+        printf("You exceeded max %d chars!\n", digits);
+        return -1;
     }
 
-    return -4;
+    if(strMenuChoiceLen > digits)
+    {
+        system("cls");
+        printf("Select valid number!\n");
+        return -1;
+    }
+
+    menuChoice = strToUnsignedInt(strMenuChoice);
+    if(menuChoice == -1 || menuChoice > maxnum)
+    {
+        system("cls");
+        printf("Select valid number!\n");
+        return -1;
+    }
+    return menuChoice;
+}
+
+int getString(const char *prompt, char *buffer, int bufferSize, int repeatOnError, int clsOnRepeat)
+{
+    do{
+        char tempBuffer[bufferSize+2];
+
+        puts(prompt);
+        safe_fgets(tempBuffer, bufferSize+2);
+
+        int tempBufferLen = strlen(tempBuffer);
+        if(tempBufferLen == bufferSize+1 )
+        {
+            if(clsOnRepeat)
+                system("cls");
+            printf("You exceeded max %d chars!\n", bufferSize);
+        }
+        else if(isStringEmpty(tempBuffer))
+        {
+            if(clsOnRepeat)
+                system("cls");
+            printf("Please enter valid string!\n", bufferSize);
+        }
+        else{
+            strcpy(buffer , tempBuffer);
+            return tempBufferLen;
+        }
+    }while(repeatOnError);
+    return -1;
+}
+
+int getInteger(const char *prompt, int *input, int inputDigits, int inputMinValue, int inputMaxValue, int repeatOnError, int clsOnRepeat)
+{
+    do{
+        char tempBuffer[inputDigits+2];
+
+        puts(prompt);
+        safe_fgets(tempBuffer, inputDigits+2);
+
+        int tempBufferLen = strlen(tempBuffer);
+        if(tempBufferLen == inputDigits+1 )
+        {
+            if(clsOnRepeat)
+                system("cls");
+            printf("You exceeded max %d chars!\n", inputDigits);
+        }
+        else {
+            int n = strToUnsignedInt(tempBuffer);
+            if(n == -1 || n > inputMaxValue || n < inputMinValue)
+            {
+                if(clsOnRepeat)
+                    system("cls");
+                printf("Input must be between %d-%d!\n", inputMinValue, inputMaxValue);
+            }
+            else{
+                *input = n;
+                return 1;
+            }
+        }
+    }while(repeatOnError);
+    return -1;
 }
