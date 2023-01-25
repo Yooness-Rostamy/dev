@@ -58,7 +58,6 @@ struct _course {
     int  Unit;
 };
 
-
 int checkFileExists(char *filename);
 int isStringEmpty(const char *s);
 int startupCheck(void);
@@ -69,6 +68,11 @@ int authenticate(struct _user allusers[], int totalUsers);
 int getMenuChoice(int digits, int maxnum);
 int getString(const char *prompt, char *buffer, int bufferSize, int repeatOnError, int clsOnRepeat);
 int getInteger(const char *prompt, int *input, int inputDigits, int inputMinValue, int inputMaxValue, int repeatOnError, int clsOnRepeat);
+int writeAllEntityElementsToFile(void *buffer, int size, int count, int entityType);
+int editEntityElementInFile(void *buffer, int size, int position, int entityType);
+int searchForStudendById(struct _student allstudents[], int totalStudents, int studentId);
+void zeroMemory(void *buffer, int size);
+void studentManagement(struct _student allstudents[], int *totalStudents);
 
 int main()
 {
@@ -114,58 +118,7 @@ int main()
         case 0:
             return 0;
         case 1:
-            {
-                while(1){
-                    system("cls");
-                    printf("Enter your choice:\n"
-                           "1 - List students\n"
-                           "2 - Add student\n"
-                           "0 - Back!\n"
-                           );
-                    int menuChoice = getMenuChoice(1, 2);
-                    if(menuChoice == 0)
-                    {
-                        system("cls");
-                        break;
-                    }
-                    if(menuChoice == 1)
-                    {
-                        printf("                     Students List\n"
-                               "-------------------------------------------------------\n"
-                                   );
-                        for(int i = 0 ; i < totalStudents ; i++)
-                        {
-                            printf("#%-3d - %-20s%-20s  , Id:%-3d\n", i, allstudents[i].firstName, allstudents[i].lastName, allstudents[i].studentId);
-                        }
-                        system("pause");
-                    }
-                    if(menuChoice == 2)
-                    {
-                        int studentId = -1;
-                        char firstName[MAXINPUT] = {}, lastName[MAXINPUT] = {};
-
-                        system("cls");
-                        int result = getInteger("Enter student Id , must be unique and between 1-101:", &studentId, 3, 1, 101, 1, 1);
-                        getString("Enter your first name:", firstName, sizeof(firstName)/sizeof(firstName[0]), 1, 1);
-                        getString("Repeat your last name:", lastName, sizeof(lastName)/sizeof(lastName[0]), 1, 1);
-                        allstudents[totalStudents].studentId = studentId;
-                        strcpy(allstudents[totalStudents].firstName, firstName);
-                        strcpy(allstudents[totalStudents].lastName , lastName);
-                        totalStudents++;
-                        FILE *writePtr;
-                        if((writePtr = fopen(files[STUDENTS], "wb"))==NULL){
-                            printf("Error, cannot access %s file! exiting...\n", files[STUDENTS]);
-                            return 1;
-                        }
-
-                        for(int i = 0 ; i < totalStudents ; i++)
-                        {
-                            fwrite(&allstudents[i], sizeof(struct _student), 1, writePtr);
-                        }
-                        fclose(writePtr);
-                    }
-                }
-            }
+            studentManagement(allstudents, &totalStudents);
             break;
         case 4:
             {
@@ -189,6 +142,7 @@ int main()
                         break;
                     }
                 }
+
                 FILE *writePtr;
                 if((writePtr = fopen(files[AUTH], "wb"))==NULL){
                     printf("Error, cannot access %s file! exiting...\n", files[AUTH]);
@@ -200,6 +154,7 @@ int main()
                     fwrite(&allusers[i], sizeof(struct _user), 1, writePtr);
                 }
                 fclose(writePtr);
+
                 system("cls");
                 puts("Password changed successfully!");
             }
@@ -249,8 +204,6 @@ int startupCheck(void){
         }
     }
 }
-
-
 
 int checkFileExists(char *filename)
 {
@@ -498,4 +451,163 @@ int getInteger(const char *prompt, int *input, int inputDigits, int inputMinValu
         }
     }while(repeatOnError);
     return -1;
+}
+
+int writeAllEntityElementsToFile(void *buffer, int size, int count, int entityType)
+{
+    FILE *writePtr;
+    if((writePtr = fopen(files[entityType], "wb"))==NULL){
+        printf("Error, cannot access %s file! exiting...\n", files[entityType]);
+        return 1;
+    }
+
+    for(int i = 0 ; i < count ; i++, buffer+=size)
+        fwrite(buffer, size, 1, writePtr);
+
+    fclose(writePtr);
+    return 0;
+}
+
+int searchForStudendById(struct _student allstudents[], int totalStudents, int studentId)
+{
+    for(int i = 0 ; i < totalStudents ; i++)
+        if(allstudents[i].studentId == studentId)
+            return i;
+    return -1;
+}
+
+void zeroMemory(void *buffer, int size)
+{
+    char *p = buffer;
+    while(size--)
+        *p++ = 0;
+}
+
+int editEntityElementInFile(void *buffer, int size, int position, int entityType)
+{
+    FILE *writePtr;
+    if((writePtr = fopen(files[entityType], "rb+"))==NULL){
+        printf("Error, cannot access %s file! exiting...\n", files[entityType]);
+        return 1;
+    }
+
+    fseek(writePtr, size*position, SEEK_SET);
+    fwrite(buffer, size, 1, writePtr);
+
+    fclose(writePtr);
+    return 0;
+}
+
+
+void studentManagement(struct _student allstudents[], int *totalStudents)
+{
+    while(1){
+        system("cls");
+        printf("Enter your choice:\n"
+               "1 - List students\n"
+               "2 - Add student\n"
+               "3 - Edit student\n"
+               "4 - Delete student\n"
+               "0 - Back!\n"
+               );
+        int menuChoice = getMenuChoice(1, 4);
+        if(menuChoice == 0)
+        {
+            system("cls");
+            return;
+        }
+        if(menuChoice == 1)
+        {
+            printf("                     Students List\n"
+                   "-------------------------------------------------------\n"
+                       );
+            for(int i = 0 ; i < (*totalStudents) ; i++)
+            {
+                printf("#%-3d - %-20s%-20s  , Id:%-3d\n", i, allstudents[i].firstName, allstudents[i].lastName, allstudents[i].studentId);
+            }
+            system("pause");
+        }
+        if(menuChoice == 2)
+        {
+            int studentId = -1;
+            char firstName[MAXINPUT] = {}, lastName[MAXINPUT] = {};
+
+            system("cls");
+            int result = getInteger("Enter student Id , must be unique and between 1-101:", &studentId, 3, 1, 101, 1, 1);
+            if(searchForStudendById(allstudents, *totalStudents, studentId) == -1)
+            {
+                getString("Enter your first name:", firstName, sizeof(firstName)/sizeof(firstName[0]), 1, 1);
+                getString("Enter your last name:", lastName, sizeof(lastName)/sizeof(lastName[0]), 1, 1);
+                allstudents[*totalStudents].studentId = studentId;
+                strcpy(allstudents[*totalStudents].firstName, firstName);
+                strcpy(allstudents[*totalStudents].lastName , lastName);
+                (*totalStudents)++;
+                writeAllEntityElementsToFile(allstudents, sizeof(struct _student), *totalStudents, STUDENTS);
+                puts("Entity created successfully!");
+                system("pause");
+            }
+            else
+            {
+                puts("Error, This id is already used! try again.");
+                system("pause");
+            }
+        }
+        if(menuChoice == 3)
+        {
+            int studentId = -1;
+            char firstName[MAXINPUT] = {}, lastName[MAXINPUT] = {};
+
+            system("cls");
+            int result = getInteger("Enter student Id:", &studentId, 3, 1, 101, 1, 1);
+            int found = searchForStudendById(allstudents, *totalStudents, studentId);
+            if(found == -1)
+            {
+                puts("Error, id not found!");
+                system("pause");
+            }
+            else{
+                getString("Enter your first name:", firstName, sizeof(firstName)/sizeof(firstName[0]), 1, 1);
+                getString("Enter your last name:", lastName, sizeof(lastName)/sizeof(lastName[0]), 1, 1);
+                allstudents[found].studentId = studentId;
+                strcpy(allstudents[found].firstName , firstName);
+                strcpy(allstudents[found].lastName , lastName);
+                if(editEntityElementInFile(&allstudents[found], sizeof(struct _student), found, STUDENTS) == 1)
+                    return 1;
+                puts("Entity edited successfully!");
+                system("pause");
+            }
+        }
+        if(menuChoice == 4)
+        {
+            int studentId = -1;
+
+            system("cls");
+            int result = getInteger("Enter student Id:", &studentId, 3, 1, 101, 1, 1);
+            int found = searchForStudendById(allstudents, *totalStudents, studentId);
+            if(found == -1)
+            {
+                puts("Error, id not found!");
+                system("pause");
+            }
+            else{
+                FILE *writePtr;
+                if((writePtr = fopen(files[STUDENTS], "wb"))==NULL){
+                    printf("Error, cannot access %s file! exiting...\n", files[STUDENTS]);
+                    return 1;
+                }
+
+                for(int i = 0 ; i < (*totalStudents) ; i++)
+                    if(allstudents[i].studentId != studentId)
+                        fwrite(&allstudents[i], sizeof(struct _student), 1, writePtr);
+//                    else
+//                        zeroMemory(&allstudents[i], sizeof(struct _student));
+
+                fclose(writePtr);
+
+                *totalStudents = loadAllEntityElementsFromFile(allstudents, sizeof(struct _student), STUDENTS);
+                puts("Entity deleted successfully!");
+                system("pause");
+            }
+        }
+    }
 }
